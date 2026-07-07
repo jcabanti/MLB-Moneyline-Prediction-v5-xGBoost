@@ -1,9 +1,0 @@
-pandas
-numpy
-scipy
-requests
-tqdm
-scikit-learn
-xgboost
-joblib
-python-dotenv
