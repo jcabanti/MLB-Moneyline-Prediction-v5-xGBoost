@@ -86,11 +86,18 @@ def run_daily_report(game_date: str | None = None) -> pd.DataFrame:
         print("No games scheduled.")
         return today_games
 
+    # Collapse market consensus to one row per (date, matchup). For
+    # doubleheaders the odds feed can't be split by game reliably, so both
+    # games share the day's consensus — dedupe here to avoid a row explosion
+    # in the join (which otherwise fans 2 games into 4).
+    mc = market_consensus.sort_values("sportsbooks", ascending=False).drop_duplicates(
+        subset=["game_date_et", "away_team_abbr", "home_team_abbr"], keep="first")
     today = today_games.merge(
-        market_consensus,
+        mc,
         left_on=["game_date", "away_team_abbr", "home_team_abbr"],
         right_on=["game_date_et", "away_team_abbr", "home_team_abbr"],
         how="left", suffixes=("", "_market"))
+    today = today.drop_duplicates(subset=["game_id"], keep="first").reset_index(drop=True)
     today["has_market_odds"] = today["odds_game_id"].notna()
 
     with get_conn() as conn:

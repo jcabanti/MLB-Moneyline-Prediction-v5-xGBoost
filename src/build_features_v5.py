@@ -440,5 +440,7 @@ def to_run_model_rows(game_features: pd.DataFrame, include_target: bool = True) 
         })
         if include_target and f"{off}_score" in game_features:
             r["runs"] = game_features[f"{off}_score"]
+        if "_row" in game_features:
+            r["_row"] = game_features["_row"].values
         rows.append(r)
     return pd.concat(rows, ignore_index=True)

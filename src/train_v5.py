@@ -82,23 +82,27 @@ def load_training_frame() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
 
 def predict_hybrid(bundle: dict, game_features: pd.DataFrame) -> pd.DataFrame:
-    """Score a game-feature frame with a trained bundle. Returns per-game probs."""
-    run_rows = to_run_model_rows(game_features, include_target=False)
+    """Score a game-feature frame with a trained bundle. Returns per-game probs.
+
+    Aligns run-model outputs by row position rather than by game_id lookup, so
+    duplicate game_ids (doubleheaders) can't desync the arrays.
+    """
+    gf = game_features.reset_index(drop=True)
+    gf = gf.assign(_row=np.arange(len(gf)))
+    run_rows = to_run_model_rows(gf, include_target=False)
     mu = np.clip(bundle["run_model"].predict(run_rows[RUN_MODEL_FEATURES]), 0.3, 12.0)
     run_rows = run_rows.assign(mu=mu)
-    mu_h = run_rows[run_rows["side"] == "home"].set_index("game_id")["mu"]
-    mu_a = run_rows[run_rows["side"] == "away"].set_index("game_id")["mu"]
-    mu_h = mu_h.loc[game_features["game_id"]].values
-    mu_a = mu_a.loc[game_features["game_id"]].values
+    mu_h = run_rows[run_rows["side"] == "home"].set_index("_row")["mu"].sort_index().values
+    mu_a = run_rows[run_rows["side"] == "away"].set_index("_row")["mu"].sort_index().values
 
     sk = batch_game_probabilities(mu_h, mu_a, bundle["alpha_home"], bundle["alpha_away"])
-    p_clf = bundle["classifier"].predict_proba(game_features[CLASSIFIER_FEATURES_V5])[:, 1]
+    p_clf = bundle["classifier"].predict_proba(gf[CLASSIFIER_FEATURES_V5])[:, 1]
     w = bundle["blend_weight"]
     p_blend = w * sk["skellam_home_win_prob"] + (1 - w) * p_clf
     p_cal = bundle["calibrator"].predict_proba(p_blend.reshape(-1, 1))[:, 1]
 
     return pd.DataFrame({
-        "game_id": game_features["game_id"].values,
+        "game_id": gf["game_id"].values,
         "model_home_win_prob": np.clip(p_cal, 1e-4, 1 - 1e-4),
         "skellam_home_win_prob": sk["skellam_home_win_prob"],
         "classifier_home_win_prob": p_clf,
