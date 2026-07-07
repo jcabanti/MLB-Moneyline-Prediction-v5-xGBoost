@@ -21,7 +21,7 @@ from .mlb_api import fetch_schedule_for_date
 from .odds import build_market_tables, fetch_current_mlb_odds, parse_current_mlb_odds
 from .team_maps import TEAM_NAME_TO_ABBR
 from .train_v5 import MODEL_PATH, predict_hybrid
-from .utils import probability_to_american_odds
+from .utils import probability_to_american_odds, to_datetime_flex
 
 EDGE_STRONG, EDGE_PLAY, EDGE_LEAN = 0.05, 0.03, 0.015
 KELLY_FRACTION = 0.25
@@ -59,7 +59,7 @@ def parse_daily_schedule(schedule_dates: list) -> pd.DataFrame:
             })
     df = pd.DataFrame(rows)
     if not df.empty:
-        df["season"] = pd.to_datetime(df["game_date"]).dt.year
+        df["season"] = to_datetime_flex(df["game_date"]).dt.year
     return df
 
 

@@ -19,6 +19,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from .utils import to_datetime_flex
+
 # ---------------------------------------------------------------------------
 # League priors for empirical-Bayes shrinkage (fixed constants -> leak-free)
 # ---------------------------------------------------------------------------
@@ -144,7 +146,7 @@ def team_features_asof(games_completed: pd.DataFrame, query_games: pd.DataFrame)
         if "home_score" not in query_games or query_games["home_score"].isna().all() else _team_long(query_games)
     todays = todays[~todays["game_id"].isin(hist["game_id"])]
     tg = pd.concat([hist, todays], ignore_index=True)
-    tg["game_date"] = pd.to_datetime(tg["game_date"])
+    tg["game_date"] = to_datetime_flex(tg["game_date"])
 
     # season-scoped expanding stats
     tg["skey"] = tg["team"] + "_" + tg["season"].astype(str)
@@ -191,7 +193,7 @@ def starter_features_asof(starter_lines: pd.DataFrame, games: pd.DataFrame, quer
     Missing/TBD pitchers (NaN id) get league-mean features.
     """
     sl = starter_lines.merge(games[["game_id", "game_date", "season"]], on="game_id", how="left")
-    sl["game_date"] = pd.to_datetime(sl["game_date"])
+    sl["game_date"] = to_datetime_flex(sl["game_date"])
     sl = sl.dropna(subset=["pitcher_id", "game_date"]).copy()
     sl["pitcher_id"] = sl["pitcher_id"].astype(np.int64)
     sl["k"] = sl["strikeouts"].fillna(0)
@@ -204,7 +206,7 @@ def starter_features_asof(starter_lines: pd.DataFrame, games: pd.DataFrame, quer
     sl["gs"] = 1.0
 
     q = queries.copy()
-    q["game_date"] = pd.to_datetime(q["game_date"])
+    q["game_date"] = to_datetime_flex(q["game_date"])
     known = q["pitcher_id"].notna()
     qk = q[known].copy()
     qk["pitcher_id"] = qk["pitcher_id"].astype(np.int64)
@@ -261,12 +263,12 @@ def starter_features_asof(starter_lines: pd.DataFrame, games: pd.DataFrame, quer
 def bullpen_features_asof(bullpen_team_game: pd.DataFrame, queries: pd.DataFrame) -> pd.DataFrame:
     """As-of bullpen features for `queries` rows of (query_id, team_abbr, game_date)."""
     bp = bullpen_team_game.copy()
-    bp["game_date"] = pd.to_datetime(bp["game_date"])
+    bp["game_date"] = to_datetime_flex(bp["game_date"])
     for c in ["bullpen_ip", "bullpen_er", "bullpen_so", "bullpen_bb", "bullpen_hits", "bullpen_hr", "bullpen_pitches"]:
         bp[c] = bp[c].fillna(0)
 
     q = queries.copy()
-    q["game_date"] = pd.to_datetime(q["game_date"])
+    q["game_date"] = to_datetime_flex(q["game_date"])
     qb = q.rename(columns={"team_abbr": "team_abbr"}).copy()
     for c in ["bullpen_ip", "bullpen_er", "bullpen_so", "bullpen_bb", "bullpen_hits", "bullpen_hr", "bullpen_pitches"]:
         qb[c] = 0.0
@@ -348,12 +350,12 @@ def build_game_features(target_games: pd.DataFrame, games_completed: pd.DataFram
     home_probable_pitcher_id/away_probable_pitcher_id), venue_id.
     """
     tgt = target_games.copy()
-    tgt["game_date"] = pd.to_datetime(tgt["game_date"])
+    tgt["game_date"] = to_datetime_flex(tgt["game_date"])
     hid = "home_starter_id" if "home_starter_id" in tgt else "home_probable_pitcher_id"
     aid = "away_starter_id" if "away_starter_id" in tgt else "away_probable_pitcher_id"
 
     gc = games_completed.copy()
-    gc["game_date"] = pd.to_datetime(gc["game_date"])
+    gc["game_date"] = to_datetime_flex(gc["game_date"])
 
     # --- team features
     tf = team_features_asof(gc, tgt)

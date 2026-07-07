@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from .db import get_conn
-from .utils import american_to_decimal
+from .utils import american_to_decimal, to_datetime_flex
 
 
 def grade_predictions(game_date: str | None = None) -> pd.DataFrame:
@@ -29,7 +29,7 @@ def grade_predictions(game_date: str | None = None) -> pd.DataFrame:
         except Exception:
             already = pd.Series([], dtype="int64")
 
-    daily["game_date"] = pd.to_datetime(daily["game_date"]).dt.date.astype(str)
+    daily["game_date"] = to_datetime_flex(daily["game_date"]).dt.date.astype(str)
     preds = daily[(daily["game_date"] == game_date) & (~daily["game_id"].isin(set(already)))].copy()
     if preds.empty:
         print(f"No ungraded predictions for {game_date}.")

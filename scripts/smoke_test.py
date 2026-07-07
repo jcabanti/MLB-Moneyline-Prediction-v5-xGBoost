@@ -12,6 +12,7 @@ import pandas as pd
 from src.build_features_v5 import build_game_features
 from src.db import get_conn
 from src.train_v5 import MODEL_PATH, predict_hybrid
+from src.utils import to_datetime_flex
 
 
 def main() -> None:
@@ -19,7 +20,7 @@ def main() -> None:
         games = pd.read_sql("SELECT * FROM games_clean", conn)
         starters = pd.read_sql("SELECT * FROM starter_game_pitching_lines", conn)
         bullpen = pd.read_sql("SELECT * FROM bullpen_team_game", conn)
-    games["game_date"] = pd.to_datetime(games["game_date"])
+    games["game_date"] = to_datetime_flex(games["game_date"])
 
     last_date = games["game_date"].max()
     slate = games[games["game_date"] == last_date].copy()

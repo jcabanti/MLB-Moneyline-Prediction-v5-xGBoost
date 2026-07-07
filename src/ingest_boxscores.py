@@ -21,7 +21,7 @@ except ImportError:  # pragma: no cover
 from .db import get_conn
 from .ingest_games import parse_schedule_dates
 from .mlb_api import fetch_game_boxscore, fetch_schedule_for_season
-from .utils import ip_str_to_float, parse_pitcher_stat_value
+from .utils import ip_str_to_float, parse_pitcher_stat_value, to_datetime_flex
 
 
 def refresh_current_season_games(season: int | None = None) -> pd.DataFrame:
@@ -32,7 +32,7 @@ def refresh_current_season_games(season: int | None = None) -> pd.DataFrame:
                         & (games["coded_status"] == "F")  # Final only: live games carry partial scores
                         & games["home_score"].notna() & games["away_score"].notna()
                         & games["home_win"].notna()].copy()
-    games_clean["game_date"] = pd.to_datetime(games_clean["game_date"])
+    games_clean["game_date"] = to_datetime_flex(games_clean["game_date"])
     games_clean = games_clean.drop_duplicates("game_id").sort_values(["game_date", "game_id"]).reset_index(drop=True)
 
     with get_conn() as conn:
@@ -40,7 +40,7 @@ def refresh_current_season_games(season: int | None = None) -> pd.DataFrame:
         conn.execute("DELETE FROM games_clean WHERE coded_status != 'F'")
         conn.commit()
         existing = pd.read_sql("SELECT * FROM games_clean WHERE season != ?", conn, params=(season,))
-        existing["game_date"] = pd.to_datetime(existing["game_date"])
+        existing["game_date"] = to_datetime_flex(existing["game_date"])
         combined = pd.concat([existing, games_clean], ignore_index=True)
         combined = combined.drop_duplicates("game_id").sort_values(["game_date", "game_id"])
         combined.to_sql("games_clean", conn, if_exists="replace", index=False)

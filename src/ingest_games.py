@@ -11,6 +11,7 @@ except ImportError:  # pragma: no cover
 from .db import get_conn
 from .mlb_api import fetch_schedule_for_season
 from .team_maps import TEAM_NAME_TO_ABBR
+from .utils import to_datetime_flex
 
 
 def parse_schedule_dates(schedule_dates: list, season: int) -> list[dict]:
@@ -66,7 +67,7 @@ def ingest_games(start_season: int = 2021, end_season: int | None = None) -> pd.
         & games["away_score"].notna()
         & games["home_win"].notna()
     ].copy()
-    games_clean["game_date"] = pd.to_datetime(games_clean["game_date"])
+    games_clean["game_date"] = to_datetime_flex(games_clean["game_date"])
     games_clean = games_clean.drop_duplicates("game_id").sort_values(["game_date", "game_id"]).reset_index(drop=True)
     with get_conn() as conn:
         games_clean.to_sql("games_clean", conn, if_exists="replace", index=False)

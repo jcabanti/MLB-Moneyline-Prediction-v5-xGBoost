@@ -56,3 +56,9 @@ def parse_pitcher_stat_value(stats: dict, key: str, default=0):
         return float(value)
     except Exception:
         return default
+
+
+def to_datetime_flex(series):
+    """Parse dates robustly: tolerates mixed 'YYYY-MM-DD' and
+    'YYYY-MM-DD HH:MM:SS' strings within one column."""
+    return pd.to_datetime(series, format="mixed")

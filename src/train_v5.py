@@ -28,6 +28,7 @@ from .build_features_v5 import CLASSIFIER_FEATURES_V5, RUN_MODEL_FEATURES, build
 from .config import MODELS_DIR
 from .db import get_conn
 from .skellam import batch_game_probabilities, estimate_dispersion
+from .utils import to_datetime_flex
 
 MODEL_PATH = MODELS_DIR / "hybrid_v5.joblib"
 TRAIN_SEASONS = (2021, 2024)
@@ -71,7 +72,7 @@ def load_training_frame() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         games = pd.read_sql("SELECT * FROM games_clean", conn)
         starters = pd.read_sql("SELECT * FROM starter_game_pitching_lines", conn)
         bullpen = pd.read_sql("SELECT * FROM bullpen_team_game", conn)
-    games["game_date"] = pd.to_datetime(games["game_date"])
+    games["game_date"] = to_datetime_flex(games["game_date"])
 
     # attach starter ids per side from the pitching-line table
     sp = starters.pivot_table(index="game_id", columns="side", values="pitcher_id", aggfunc="first").reset_index()
