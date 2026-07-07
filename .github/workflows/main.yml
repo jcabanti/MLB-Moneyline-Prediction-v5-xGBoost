@@ -1,0 +1,91 @@
+name: MLB V5 Hybrid Reports
+
+on:
+  workflow_dispatch:
+    inputs:
+      retrain:
+        description: 'Also retrain the V5 model'
+        type: boolean
+        default: false
+  schedule:
+    # Morning report: ~8:00 AM Pacific (15:00 UTC during PDT)
+    - cron: '0 15 * * *'
+    # Lineup-watch refreshes hourly, roughly noon-7 PM Pacific
+    - cron: '0 19-23,0-2 * * *'
+    # Overnight: ingest results + grade, ~11:30 PM Pacific
+    - cron: '30 6 * * *'
+    # Weekly retrain: Monday ~4 AM Pacific
+    - cron: '0 11 * * 1'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mlb-reports
+  cancel-in-progress: false
+
+jobs:
+  daily:
+    if: github.event.schedule != '0 11 * * 1'
+    runs-on: ubuntu-latest
+    env:
+      ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+      BASE_DIR: .
+      DB_PATH: data/mlb_moneyline.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Ingest new results and boxscores
+        run: python -m src.ingest_boxscores
+      - name: Grade yesterday's predictions
+        run: python -m src.grade_predictions || true
+      - name: Run daily V5 report
+        run: python -m src.run_daily_report
+      - name: Commit updated database and reports
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/mlb_moneyline.db reports/daily
+          git diff --cached --quiet || git commit -m "Daily data + V5 report [skip ci]"
+          git pull --rebase origin ${GITHUB_REF_NAME} || true
+          git push
+      - name: Upload report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlb-v5-reports
+          path: |
+            reports/daily/daily_predictions_v5_hybrid_*.csv
+            reports/daily/report_v5_*.md
+
+  weekly-retrain:
+    needs: daily
+    if: always() && (github.event.schedule == '0 11 * * 1' || (github.event_name == 'workflow_dispatch' && inputs.retrain))
+    runs-on: ubuntu-latest
+    env:
+      BASE_DIR: .
+      DB_PATH: data/mlb_moneyline.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Ingest new results and boxscores
+        run: python -m src.ingest_boxscores
+      - name: Retrain V5 hybrid model
+        run: python -m src.train_v5
+      - name: Commit updated model and database
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/mlb_moneyline.db models/hybrid_v5.joblib
+          git diff --cached --quiet || git commit -m "Weekly V5 retrain [skip ci]"
+          git pull --rebase origin ${GITHUB_REF_NAME} || true
+          git push
